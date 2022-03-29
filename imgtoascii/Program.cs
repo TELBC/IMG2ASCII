@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using System.Drawing.Imaging;
-using System.Reflection;
 using System.Text;
 
 namespace imgtoascii
@@ -14,7 +13,7 @@ namespace imgtoascii
         private static string density = "                ..'`^\",:; Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
         static void Main(string[] args)
         {
-            Consolecolors();
+            ConsoleColors();
             ConsoleColor[] colors = new ConsoleColor[160 * 60];
             //frames counter
             DateTime lastTime = DateTime.Now;
@@ -38,7 +37,7 @@ namespace imgtoascii
                 while (true)
                 {
                     capture.Read(frame);
-                    string f = Imgtoascii(AdjustContrast((Bitmap)Image.FromStream(frame.ToMemoryStream()), 50), 80, colors, colorful);
+                    string f = ImgToAscii(AdjustContrast((Bitmap)Image.FromStream(frame.ToMemoryStream()), 2,0.7f), 80, colors, colorful);
                     ushort[] hexed = ToDec(f);
 
                     if (!h.IsInvalid)
@@ -68,7 +67,7 @@ namespace imgtoascii
                     }
                     if (Console.KeyAvailable) break;
                     Process proc = Process.GetCurrentProcess();
-                    double memory = Math.Round((double)(proc.PrivateMemorySize64 / Math.Pow(1024, 2)), 2);
+                    double memory = Math.Round((proc.PrivateMemorySize64 / Math.Pow(1024, 2)), 2);
                     proc.Dispose();
                     Console.Title = "ASCII Camera. Video to ASCII Video converter    Frames: " + frames + "FPS        RAM usage: " + memory + "MB";
                     if ((DateTime.Now - lastTime).TotalSeconds >= 1)
@@ -86,8 +85,9 @@ namespace imgtoascii
             Console.WriteLine("Thank you for using the ASCII Camera!");
             Console.WriteLine("Please Check out my Github Page!");
             Console.WriteLine("https://github.com/TELBC");
-            Thread.Sleep(5000);
+            Thread.Sleep(3000);
             Console.WriteLine("Closing...");
+            Thread.Sleep(1000);
         }
         private static bool ConsoleStartup()
         {
@@ -98,14 +98,13 @@ namespace imgtoascii
             Console.WriteLine("Colored, but much slower -> y");
             Console.WriteLine("Colourless, but faster -> n");
             Console.Write("Please input (y/n):");
-            string? colors_input = null;
             while (true)
             {
-                colors_input = Console.ReadLine();
-                if (colors_input == "y" || colors_input == "n")
+                string? colorsInput = Console.ReadLine();
+                if (colorsInput == "y" || colorsInput == "n")
                 {
-                    if (colors_input == "n") return false;
-                    else if (colors_input == "y") return true;
+                    if (colorsInput == "n") return false;
+                    else if (colorsInput == "y") return true;
                 }
                 else
                 {
@@ -122,9 +121,9 @@ namespace imgtoascii
             }
             return value;
         }
-        private static string Imgtoascii(Bitmap input, double imgWidth, ConsoleColor[] colorsOne, bool colorful)
+        private static string ImgToAscii(Bitmap input, double imgWidth, ConsoleColor[] colorsOne, bool colorful)
         {
-            double ratio = (double)(imgWidth / input.Width);
+            double ratio = imgWidth / input.Width;
             input = new Bitmap(input, new System.Drawing.Size((int)imgWidth, (int)(input.Height * ratio)));
             input.RotateFlip(RotateFlipType.RotateNoneFlipX);
             var buffer = new string[input.Height];
@@ -153,7 +152,7 @@ namespace imgtoascii
             }
             return output.ToString();
         }
-        private static void Consolecolors()
+        private static void ConsoleColors()
         {
             //makes sure windows console can process the ansi colors
             Process process = new Process();
@@ -187,61 +186,30 @@ namespace imgtoascii
             }
             return ret;
         }
-        private static Bitmap AdjustContrast(Bitmap image, float value)
+        private static Bitmap AdjustContrast(Bitmap image, float contrast, float brightness)
         {
-            value = (100.0f + value) / 100.0f;
-            value *= value;
-            Bitmap NewBitmap = (Bitmap)image.Clone();
-            BitmapData data = NewBitmap.LockBits(
-                new Rectangle(0, 0, NewBitmap.Width, NewBitmap.Height),
-                ImageLockMode.ReadWrite, PixelFormat.Format32bppRgb);
-            int Height = NewBitmap.Height;
-            int Width = NewBitmap.Width;
+            //code from Vladl
+            Bitmap adjustedImage=image;
 
-            unsafe
-            {
-                for (int y = 0; y < Height; ++y)
-                {
-                    byte* row = (byte*)data.Scan0 + (y * data.Stride);
-                    int columnOffset = 0;
-                    for (int x = 0; x < Width; ++x)
-                    {
-                        byte B = row[columnOffset];
-                        byte G = row[columnOffset + 1];
-                        byte R = row[columnOffset + 2];
+            float adjustedBrightness = brightness-1;
+            float[][] ptsArray ={
+                new [] {contrast, 0, 0, 0, 0},
+                new [] {0, contrast, 0, 0, 0},
+                new [] {0, 0, contrast, 0, 0},
+                new [] {0, 0, 0, 1.0f, 0}, 
+                new [] {adjustedBrightness, adjustedBrightness, adjustedBrightness, 0, 1}};
 
-                        float Red = R / 255.0f;
-                        float Green = G / 255.0f;
-                        float Blue = B / 255.0f;
-                        Red = (((Red - 0.5f) * value) + 0.5f) * 255.0f;
-                        Green = (((Green - 0.5f) * value) + 0.5f) * 255.0f;
-                        Blue = (((Blue - 0.5f) * value) + 0.5f) * 255.0f;
-
-                        int iR = (int)Red;
-                        iR = iR > 255 ? 255 : iR;
-                        iR = iR < 0 ? 0 : iR;
-                        int iG = (int)Green;
-                        iG = iG > 255 ? 255 : iG;
-                        iG = iG < 0 ? 0 : iG;
-                        int iB = (int)Blue;
-                        iB = iB > 255 ? 255 : iB;
-                        iB = iB < 0 ? 0 : iB;
-
-                        row[columnOffset] = (byte)iB;
-                        row[columnOffset + 1] = (byte)iG;
-                        row[columnOffset + 2] = (byte)iR;
-
-                        columnOffset += 4;
-                    }
-                }
-            }
-
-            NewBitmap.UnlockBits(data);
-
-            return NewBitmap;
+            ImageAttributes imageAttributes = new ImageAttributes();
+            imageAttributes.ClearColorMatrix();
+            imageAttributes.SetColorMatrix(new ColorMatrix(ptsArray), ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+            Graphics g = Graphics.FromImage(adjustedImage);
+            g.DrawImage(image, new Rectangle(0,0,adjustedImage.Width,adjustedImage.Height)
+                ,0,0,image.Width,image.Height,
+                GraphicsUnit.Pixel, imageAttributes);
+            return adjustedImage;
         }
 
-        //DLLimports 
+        //DLL imports 
         //DO NOT TOUCH
         [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         static extern SafeFileHandle CreateFile(string fileName, [MarshalAs(UnmanagedType.U4)] uint fileAccess, [MarshalAs(UnmanagedType.U4)] uint fileShare, IntPtr securityAttributes, [MarshalAs(UnmanagedType.U4)] FileMode creationDisposition, [MarshalAs(UnmanagedType.U4)] int flags, IntPtr template);
@@ -253,17 +221,17 @@ namespace imgtoascii
             public short X;
             public short Y;
 
-            public Coord(short X, short Y)
+            public Coord(short x, short y)
             {
-                this.X = X;
-                this.Y = Y;
+                this.X = x;
+                this.Y = y;
             }
         };
         [StructLayout(LayoutKind.Explicit)]
         private struct CharUnion
         {
             [FieldOffset(0)] public ushort UnicodeChar;
-            [FieldOffset(0)] public byte AsciiChar;
+            [FieldOffset(0)] private readonly byte AsciiChar;
         }
         [StructLayout(LayoutKind.Explicit)]
         private struct CharInfo
