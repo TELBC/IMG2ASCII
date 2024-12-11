@@ -10,11 +10,16 @@ namespace imgtoascii
 {
     class Program
     {
-        private static string density = "                ..'`^\",:; Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+        private static string density =
+            "                ..'`^\",:;lIl!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+
+        private static int width_all = Console.LargestWindowWidth/2;
+        private static int height_all = Console.LargestWindowHeight*3;
+
         static void Main(string[] args)
         {
             ConsoleColors();
-            ConsoleColor[] colors = new ConsoleColor[160 * 60];
+            ConsoleColor[] colors = new ConsoleColor[width_all * height_all];
             //frames counter
             DateTime lastTime = DateTime.Now;
             int frameRendered = 0;
@@ -32,44 +37,53 @@ namespace imgtoascii
             using (var frame = new Mat())
             {
                 SafeFileHandle h = CreateFile("CONOUT$", 0x60000000, 2, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
-                capture.FrameWidth = 80;
-                capture.FrameHeight = 60;
+                capture.FrameWidth = width_all / 2;
+                capture.FrameHeight = height_all;
                 while (true)
                 {
                     capture.Read(frame);
-                    string f = ImgToAscii(AdjustContrast((Bitmap)Image.FromStream(frame.ToMemoryStream()), 2,0.7f), 80, colors, colorful);
+                    string f = ImgToAscii(AdjustContrast((Bitmap) Image.FromStream(frame.ToMemoryStream()), 2, 0.7f), width_all / 2, colors, colorful);
                     ushort[] hexed = ToDec(f);
-
                     if (!h.IsInvalid)
                     {
                         CharInfo[] buf = new CharInfo[hexed.Length];
-                        SmallRect rect = new SmallRect() { Left = 0, Top = 0, Right = 160, Bottom = 60 };
-                        for (int i = 0; i < 160 * 60; i++)
+                        SmallRect rect = new SmallRect()
+                            {Left = 0, Top = 0, Right = (short) width_all, Bottom = (short) height_all};
+                        for (int i = 0; i < width_all * height_all; i++)
                         {
                             buf[i].Char.UnicodeChar = hexed[i];
-                            if (colorful) buf[i].Attributes = (short)colors[i];
+                            if (colorful) buf[i].Attributes = (short) colors[i];
 
                             else if (!colorful)
-                            {//gray scaling with shadows
-                                if (hexed[i] == '$' || hexed[i] == '@' || hexed[i] == 'B' || hexed[i] == '%' || hexed[i] == '8' || hexed[i] == '&' || hexed[i] == 'W')
+                            {
+                                //gray scaling with shadows
+                                if (hexed[i] == '$' || hexed[i] == '@' || hexed[i] == 'B' || hexed[i] == '%' ||
+                                    hexed[i] == '8' || hexed[i] == '&' || hexed[i] == 'W')
                                     buf[i].Attributes = 15;
-                                else if (hexed[i] == ' ' || hexed[i] == '.' || hexed[i] == '\'' || hexed[i] == '`' || hexed[i] == '^' || hexed[i] == '\"' || hexed[i] == ',')
+                                else if (hexed[i] == ' ' || hexed[i] == '.' || hexed[i] == '\'' || hexed[i] == '`' ||
+                                         hexed[i] == '^' || hexed[i] == '\"' || hexed[i] == ',')
+                                    buf[i].Attributes = 0;
+                                else if (hexed[i] == ':' || hexed[i] == ';' || hexed[i] == 'l' || hexed[i] == 'I' ||
+                                         hexed[i] == 'l' || hexed[i] == '!' || hexed[i] == 'i')
                                     buf[i].Attributes = 8;
                                 else
                                     buf[i].Attributes = 7;
                             }
                         }
-                        WriteConsoleOutput(h, buf,
-                              new Coord() { X = 160, Y = 60 },
-                              new Coord() { X = 0, Y = 0 },
-                              ref rect);
-                        frameRendered++;
+                        
+                            WriteConsoleOutput(h, buf,
+                                    new Coord() {X = (short) width_all, Y = (short) height_all},
+                                    new Coord() {X = 0, Y = 0},
+                                    ref rect);
+                            frameRendered++;
                     }
+
                     if (Console.KeyAvailable) break;
                     Process proc = Process.GetCurrentProcess();
                     double memory = Math.Round((proc.PrivateMemorySize64 / Math.Pow(1024, 2)), 2);
                     proc.Dispose();
-                    Console.Title = "ASCII Camera. Video to ASCII Video converter    Frames: " + frames + "FPS        RAM usage: " + memory + "MB";
+                    Console.Title = "ASCII Camera. Video to ASCII Video converter    Frames: " + frames +
+                                    "FPS        RAM usage: " + memory + "MB";
                     if ((DateTime.Now - lastTime).TotalSeconds >= 1)
                     {
                         frames = frameRendered;
@@ -78,21 +92,24 @@ namespace imgtoascii
                     }
                 }
             }
-            Task.WaitAll();//quick fix for callback error
+
+            Task.WaitAll(); //quick fix for callback error
             Console.Clear();
             Console.Title = "ASCII Camera. Video to ASCII Video converter";
             Console.WriteLine("Made by TELBC");
             Console.WriteLine("Thank you for using the ASCII Camera!");
             Console.WriteLine("Please Check out my Github Page!");
             Console.WriteLine("https://github.com/TELBC");
-            Thread.Sleep(3000);
+            Thread.Sleep(2500);
             Console.WriteLine("Closing...");
-            Thread.Sleep(1000);
+            Thread.Sleep(200);
         }
+
         private static bool ConsoleStartup()
         {
-            Console.SetWindowSize(160, 60);
-            Console.SetBufferSize(160, 60);
+            Console.SetBufferSize(width_all, height_all);
+            Console.SetWindowSize(width_all, height_all);
+            SetWindowPos(GetConsoleWindow(), IntPtr.Zero, -5, 0,1920*3/4+17,1050 , 0x4 | 0x10);//weird numbers but works
             Console.Title = "ASCII Camera. Video to ASCII Video converter";
             Console.WriteLine("Welcome to the ASCII Camera \nA Pixel-video to ASCII-video converter");
             Console.WriteLine("Colored, but much slower -> y");
@@ -112,19 +129,22 @@ namespace imgtoascii
                 }
             }
         }
+
         private static ushort[] ToDec(string input)
         {
             ushort[] value = new ushort[input.Length];
             for (int i = 0; i < input.Length; i++)
             {
-                value[i] = (ushort)Convert.ToInt32(input[i]);
+                value[i] = (ushort) Convert.ToInt32(input[i]);
             }
+
             return value;
         }
+
         private static string ImgToAscii(Bitmap input, double imgWidth, ConsoleColor[] colorsOne, bool colorful)
         {
             double ratio = imgWidth / input.Width;
-            input = new Bitmap(input, new System.Drawing.Size((int)imgWidth, (int)(input.Height * ratio)));
+            input = new Bitmap(input, new System.Drawing.Size((int) imgWidth, (int) (input.Height * ratio)));
             input.RotateFlip(RotateFlipType.RotateNoneFlipX);
             var buffer = new string[input.Height];
             for (int i = 0; i < input.Height; i++)
@@ -143,15 +163,19 @@ namespace imgtoascii
                         colorsOne[i * input.Width * 2 + 2 * j + 1] = ClosestConsoleColor(pixel.R, pixel.G, pixel.B);
                     }
                 }
+
                 buffer[i] = string.Join("", line);
             }
+
             StringBuilder output = new StringBuilder();
             foreach (string line in buffer)
             {
                 output.Append(line);
             }
+
             return output.ToString();
         }
+
         private static void ConsoleColors()
         {
             //makes sure windows console can process the ansi colors
@@ -159,12 +183,14 @@ namespace imgtoascii
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.WindowStyle = ProcessWindowStyle.Hidden;
             startInfo.FileName = "cmd.exe";
-            startInfo.Arguments = "/C reg add HKEY_CURRENT_USER\\Console /v VirtualTerminalLevel /t REG_DWORD /d 0x00000001 /f";
+            startInfo.Arguments =
+                "/C reg add HKEY_CURRENT_USER\\Console /v VirtualTerminalLevel /t REG_DWORD /d 0x00000001 /f";
             process.StartInfo = startInfo;
             process.Start();
             process.WaitForExit();
             Console.Clear();
         }
+
         private static ConsoleColor ClosestConsoleColor(byte r, byte g, byte b)
         {
             //method copied from Glenn Slayden
@@ -184,37 +210,53 @@ namespace imgtoascii
                     ret = cc;
                 }
             }
+
             return ret;
         }
+
         private static Bitmap AdjustContrast(Bitmap image, float contrast, float brightness)
         {
             //code from Vladl
-            Bitmap adjustedImage=image;
+            Bitmap adjustedImage = image;
 
-            float adjustedBrightness = brightness-1;
-            float[][] ptsArray ={
-                new [] {contrast, 0, 0, 0, 0},
-                new [] {0, contrast, 0, 0, 0},
-                new [] {0, 0, contrast, 0, 0},
-                new [] {0, 0, 0, 1.0f, 0}, 
-                new [] {adjustedBrightness, adjustedBrightness, adjustedBrightness, 0, 1}};
+            float adjustedBrightness = brightness - 1;
+            float[][] ptsArray =
+            {
+                new[] {contrast, 0, 0, 0, 0},
+                new[] {0, contrast, 0, 0, 0},
+                new[] {0, 0, contrast, 0, 0},
+                new[] {0, 0, 0, 1.0f, 0},
+                new[] {adjustedBrightness, adjustedBrightness, adjustedBrightness, 0, 1}
+            };
 
             ImageAttributes imageAttributes = new ImageAttributes();
             imageAttributes.ClearColorMatrix();
             imageAttributes.SetColorMatrix(new ColorMatrix(ptsArray), ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
             Graphics g = Graphics.FromImage(adjustedImage);
-            g.DrawImage(image, new Rectangle(0,0,adjustedImage.Width,adjustedImage.Height)
-                ,0,0,image.Width,image.Height,
+            g.DrawImage(image, new Rectangle(0, 0, adjustedImage.Width, adjustedImage.Height)
+                , 0, 0, image.Width, image.Height,
                 GraphicsUnit.Pixel, imageAttributes);
             return adjustedImage;
         }
 
         //DLL imports 
         //DO NOT TOUCH
+        [DllImport("user32")]
+        static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, int flags);
+
+        [DllImport("kernel32")]
+        static extern IntPtr GetConsoleWindow();
+        
         [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        static extern SafeFileHandle CreateFile(string fileName, [MarshalAs(UnmanagedType.U4)] uint fileAccess, [MarshalAs(UnmanagedType.U4)] uint fileShare, IntPtr securityAttributes, [MarshalAs(UnmanagedType.U4)] FileMode creationDisposition, [MarshalAs(UnmanagedType.U4)] int flags, IntPtr template);
+        static extern SafeFileHandle CreateFile(string fileName, [MarshalAs(UnmanagedType.U4)] uint fileAccess,
+            [MarshalAs(UnmanagedType.U4)] uint fileShare, IntPtr securityAttributes,
+            [MarshalAs(UnmanagedType.U4)] FileMode creationDisposition, [MarshalAs(UnmanagedType.U4)] int flags,
+            IntPtr template);
+
         [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool WriteConsoleOutput(SafeFileHandle hConsoleOutput, CharInfo[] lpBuffer, Coord dwBufferSize, Coord dwBufferCoord, ref SmallRect lpWriteRegion);
+        static extern bool WriteConsoleOutput(SafeFileHandle hConsoleOutput, CharInfo[] lpBuffer, Coord dwBufferSize,
+            Coord dwBufferCoord, ref SmallRect lpWriteRegion);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct Coord
         {
@@ -227,18 +269,21 @@ namespace imgtoascii
                 this.Y = y;
             }
         };
+
         [StructLayout(LayoutKind.Explicit)]
         private struct CharUnion
         {
             [FieldOffset(0)] public ushort UnicodeChar;
             [FieldOffset(0)] private readonly byte AsciiChar;
         }
+
         [StructLayout(LayoutKind.Explicit)]
         private struct CharInfo
         {
             [FieldOffset(0)] public CharUnion Char;
             [FieldOffset(2)] public short Attributes;
         }
+
         [StructLayout(LayoutKind.Sequential)]
         private struct SmallRect
         {
