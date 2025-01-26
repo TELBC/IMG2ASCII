@@ -24,19 +24,16 @@
 To run this project locally, follow these steps:
 
 1. Clone this repository:
-   ```bash
-   git clone https://github.com/TELBC/ASCII-Camera.git
+   ```
+   clone the repository
    cd ASCII-Camera
-
-    Install required dependencies:
-        This project uses OpenCvSharp for webcam capture. Make sure you have the necessary dependencies installed for OpenCvSharp.
-
-    Build and run the project:
-        Open the solution in Visual Studio and press F5 to build and run the project.
+   open imgtoascii.exe
+   have FUN
 
 Usage
 
     Upon starting the program, you'll be asked to choose whether you want colorful or monochrome ASCII output.
+    Additionally, the program will ask the resolution.
     The video feed from your webcam will be displayed as ASCII art in the console window.
     You can resize the console window to adjust the resolution, but keep in mind that extremely large windows may affect performance.
 
